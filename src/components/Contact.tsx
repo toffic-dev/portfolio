@@ -1,57 +1,51 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { Send } from "lucide-react";
+import { AlertCircle, Check, Loader2, Mail, Send } from "lucide-react";
 import { site } from "@/data/site";
 import { getSocialLink } from "@/data/social";
+import {
+  buildContactMailto,
+  validateContactMessage,
+  type ContactErrors,
+  type ContactMessage,
+} from "@/lib/contact";
 import { Button, LinkButton } from "@/components/ui/Button";
 import { Reveal } from "@/components/ui/Reveal";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { SocialList } from "@/components/ui/SocialLinks";
 import { cn } from "@/lib/utils";
 
-interface FormState {
-  name: string;
-  email: string;
-  subject: string;
-  message: string;
-}
+type Status = "idle" | "sending" | "sent" | "fallback" | "error";
 
-type FormErrors = Partial<Record<keyof FormState, string>>;
-type Status = "idle" | "sent";
-
-const EMPTY: FormState = { name: "", email: "", subject: "", message: "" };
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const EMPTY: ContactMessage = { name: "", email: "", subject: "", message: "" };
 
 /**
  * Contact section: a large closing statement, the direct channels, and a form
- * that validates properly.
+ * that genuinely sends.
  *
- * The form is intentionally front-end only — validation, error messaging,
- * focus handling and the success state are all real; wiring an email service or
- * route handler later is a single `onSubmit` change.
+ * Delivery goes through `POST /api/contact`, which forwards the message with
+ * Resend once `RESEND_API_KEY` is configured. When it is not, that route answers
+ * `503` and the form hands the visitor a prefilled `mailto:` link rather than
+ * claiming a send that never happened — the same "never overstate" rule the
+ * bracketed placeholders follow.
+ *
+ * `configured` is decided on the server (see `@/lib/contact-config`) so the
+ * wording is honest before the visitor types, not only after they submit.
  */
-export function Contact() {
-  const [values, setValues] = useState<FormState>(EMPTY);
-  const [errors, setErrors] = useState<FormErrors>({});
+export function Contact({ configured }: { configured: boolean }) {
+  const [values, setValues] = useState<ContactMessage>(EMPTY);
+  const [errors, setErrors] = useState<ContactErrors>({});
   const [status, setStatus] = useState<Status>("idle");
+  const [failure, setFailure] = useState<string | null>(null);
+  /* Bot trap. Hidden from people and assistive tech, so only automation fills it. */
+  const [trap, setTrap] = useState("");
 
-  function validate(next: FormState): FormErrors {
-    const found: FormErrors = {};
+  const email = getSocialLink("email");
+  const mailtoHref = buildContactMailto(values, site.email);
+  const busy = status === "sending";
 
-    if (!next.name.trim()) found.name = "Please enter your name.";
-    if (!next.email.trim()) found.email = "Please enter your email address.";
-    else if (!EMAIL_PATTERN.test(next.email.trim()))
-      found.email = "That email address does not look valid.";
-    if (!next.subject.trim()) found.subject = "Please add a subject.";
-    if (!next.message.trim()) found.message = "Please write a message.";
-    else if (next.message.trim().length < 20)
-      found.message = "A little more detail helps — 20 characters minimum.";
-
-    return found;
-  }
-
-  function update(field: keyof FormState, value: string) {
+  function update(field: keyof ContactMessage, value: string) {
     setValues((current) => ({ ...current, [field]: value }));
     setErrors((current) => {
       if (!current[field]) return current;
@@ -61,25 +55,69 @@ export function Contact() {
     });
   }
 
-  function onSubmit(event: FormEvent<HTMLFormElement>) {
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const found = validate(values);
+    if (busy) return;
+
+    /* The route runs this same validator, so anything accepted here cannot be
+       refused there for an unrelated reason. */
+    const found = validateContactMessage(values);
     setErrors(found);
+    setFailure(null);
 
     if (Object.keys(found).length > 0) {
       /* Focus the first field that failed. Resolving it by id keeps this
          synchronous — the DOM has not re-rendered with `aria-invalid` yet. */
-      const firstInvalid = Object.keys(found)[0];
-      document.getElementById(firstInvalid)?.focus();
+      document.getElementById(Object.keys(found)[0])?.focus();
       return;
     }
 
-    /* No backend yet: this resets the UI into its success state. */
-    setStatus("sent");
-    setValues(EMPTY);
-  }
+    setStatus("sending");
 
-  const email = getSocialLink("email");
+    try {
+      const response = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...values, company: trap }),
+      });
+      const data = (await response.json().catch(() => null)) as
+        | { ok?: boolean; message?: string }
+        | null;
+
+      if (response.ok && data?.ok) {
+        setStatus("sent");
+        setValues(EMPTY);
+        return;
+      }
+
+      /* Two ways to reach the handoff. `values` is kept either way so the link
+         can carry what was typed.
+           - 503: the route is running but has no key configured
+           - 404/405, or a body that is not our JSON: no contact route is
+             mounted at all (a static deployment, for instance)
+         Neither is an error the visitor can act on, so neither is dressed up as
+         one — and delivery deliberately does not depend on the `configured`
+         flag, which is only there to word the form before submission. */
+      const noTransport =
+        response.status === 503 ||
+        response.status === 404 ||
+        response.status === 405 ||
+        data === null;
+
+      if (noTransport) {
+        setStatus("fallback");
+        return;
+      }
+
+      setStatus("error");
+      setFailure(data?.message ?? "The message could not be sent.");
+    } catch {
+      setStatus("error");
+      setFailure(
+        "The server could not be reached. Please try again, or use the email link above."
+      );
+    }
+  }
 
   return (
     <section
@@ -146,7 +184,11 @@ export function Contact() {
             <form onSubmit={onSubmit} noValidate className="card p-6 sm:p-8">
               <div className="flex flex-wrap items-baseline justify-between gap-3 border-b border-line pb-5">
                 <span className="meta text-muted">Send a message</span>
-                <span className="meta text-muted">UI only — no email service</span>
+                {/* Honest about the transport before the visitor types, not only
+                    after they submit. */}
+                <span className="meta text-muted">
+                  {configured ? "Delivered by email" : "Opens your mail client"}
+                </span>
               </div>
 
               {status === "sent" ? (
@@ -154,11 +196,13 @@ export function Contact() {
                   role="status"
                   className="mt-6 rounded-lg border border-ok/35 bg-ok/10 p-5"
                 >
-                  <p className="meta text-ok">Message captured in the interface</p>
+                  <p className="meta flex items-center gap-2 text-ok">
+                    <Check aria-hidden="true" className="h-3.5 w-3.5" />
+                    Message sent
+                  </p>
                   <p className="mt-3 text-sm leading-relaxed text-ink-soft">
-                    The form is not connected to an email service yet, so nothing was
-                    actually sent. Connecting it later means handling these values in
-                    this component&apos;s submit handler.
+                    Delivered to {site.email}. I read everything that arrives and will
+                    reply to the address you gave.
                   </p>
                   <Button
                     variant="secondary"
@@ -169,8 +213,73 @@ export function Contact() {
                     Write another message
                   </Button>
                 </div>
+              ) : status === "fallback" ? (
+                /* No transport configured. The message is handed to the visitor's
+                   own mail client instead of being reported as sent. */
+                <div
+                  role="status"
+                  className="mt-6 rounded-lg border border-line bg-elevated/60 p-5"
+                >
+                  <p className="meta flex items-center gap-2 text-ink">
+                    <Mail aria-hidden="true" className="h-3.5 w-3.5" />
+                    No email service is connected to this site
+                  </p>
+                  <p className="mt-3 text-sm leading-relaxed text-ink-soft">
+                    Your message has <span className="text-ink">not</span> been sent —
+                    nothing was transmitted and nothing was stored. Open it in your own
+                    mail client instead: the subject and body are already written out.
+                  </p>
+                  <div className="mt-5 flex flex-wrap items-center gap-3">
+                    <LinkButton
+                      href={mailtoHref}
+                      size="sm"
+                      leadingIcon={<Mail aria-hidden="true" className="h-4 w-4" />}
+                    >
+                      Open in mail client
+                    </LinkButton>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setStatus("idle")}
+                    >
+                      Back to the form
+                    </Button>
+                  </div>
+                </div>
               ) : (
                 <div className="mt-6 space-y-5">
+                  {failure && (
+                    <p
+                      role="alert"
+                      className="flex items-start gap-3 rounded-lg border border-warn/40 bg-warn/10 p-4 text-sm leading-relaxed text-ink-soft"
+                    >
+                      <AlertCircle
+                        aria-hidden="true"
+                        className="mt-0.5 h-4 w-4 shrink-0 text-warn"
+                      />
+                      {failure}
+                    </p>
+                  )}
+
+                  {/* Bot trap: off-screen, out of the tab order and hidden from
+                      assistive tech, so a value in it means automation filled it
+                      in. Real visitors never encounter it. */}
+                  <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute -left-[9999px] h-0 w-0 overflow-hidden opacity-0"
+                  >
+                    <label htmlFor="company">Company</label>
+                    <input
+                      id="company"
+                      name="company"
+                      type="text"
+                      tabIndex={-1}
+                      autoComplete="off"
+                      value={trap}
+                      onChange={(event) => setTrap(event.target.value)}
+                    />
+                  </div>
+
                   <div className="grid gap-5 sm:grid-cols-2">
                     <Field
                       id="name"
@@ -216,12 +325,22 @@ export function Contact() {
                   <div className="flex flex-wrap items-center justify-between gap-4 border-t border-line pt-5">
                     <Button
                       type="submit"
-                      leadingIcon={<Send aria-hidden="true" className="h-4 w-4" />}
+                      disabled={busy}
+                      leadingIcon={
+                        busy ? (
+                          <Loader2
+                            aria-hidden="true"
+                            className="h-4 w-4 animate-spin"
+                          />
+                        ) : (
+                          <Send aria-hidden="true" className="h-4 w-4" />
+                        )
+                      }
                     >
-                      Send message
+                      {busy ? "Sending…" : "Send message"}
                     </Button>
                     <span className="meta text-muted">
-                      Validation runs in the browser
+                      Checked in the browser and on the server
                     </span>
                   </div>
                 </div>
@@ -235,7 +354,7 @@ export function Contact() {
 }
 
 interface FieldProps {
-  id: keyof FormState;
+  id: keyof ContactMessage;
   label: string;
   value: string;
   onChange: (value: string) => void;

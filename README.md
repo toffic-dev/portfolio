@@ -17,14 +17,16 @@ placeholders.
 ```bash
 npm install
 npm run dev        # http://localhost:3000
-npm run build      # production build (all routes prerendered)
+npm run build      # production build (all pages prerendered)
 npm run typecheck  # tsc --noEmit
 npm run lint       # eslint
 ```
 
 Deploy to Vercel: import the repository, then set **`NEXT_PUBLIC_SITE_URL`**
 (e.g. `https://your-domain.com`) so metadata, `robots.txt` and `sitemap.xml`
-use the real domain.
+use the real domain. Optionally set **`RESEND_API_KEY`** to switch the contact
+form from a `mailto:` handoff to real delivery — see "Contact form" below.
+`.env.example` lists every variable the site reads.
 
 **Testing on a phone or another machine?** `next dev` also serves on this
 machine's LAN address and prints it (`Network: http://192.168.100.4:3000`). Next
@@ -79,6 +81,48 @@ title/description. Hero, navbar, footer and metadata all update together.
 
 In `src/data/social.ts`, replace `href: "#"` with real URLs. Links flip from
 "placeholder" styling to real links automatically.
+
+### Contact form
+
+The form posts to `POST /api/contact`, which forwards the message with Resend
+and sets `reply_to` to the visitor's own address, so replying reaches them
+rather than the sending mailbox.
+
+**With no configuration it still works — it just tells the truth.** Nothing is
+sent, and the visitor gets a prefilled `mailto:` link instead. The form never
+reports a send it did not make, in the same spirit as the bracketed
+placeholders.
+
+```bash
+RESEND_API_KEY=re_...   # the only required step to turn delivery on
+CONTACT_TO_EMAIL=       # optional; defaults to site.email
+CONTACT_FROM_EMAIL=     # a sender on a domain verified in Resend
+```
+
+Until a domain is verified, leave `CONTACT_FROM_EMAIL` unset: the route falls
+back to Resend's shared `onboarding@resend.dev` sender, which works immediately
+but only delivers to the address that owns the Resend account.
+
+Validation is **shared, not duplicated**. `src/lib/contact.ts` holds the rules
+and both the browser and the route handler call `validateContactMessage()`, so a
+message that passes in the browser cannot be refused by the server for a
+different reason. On top of that the route re-reads every field as a string (a
+crafted JSON body carrying objects or arrays where text belongs is rejected
+rather than interpolated), caps each field's length, and silently drops any
+submission that fills the hidden `company` honey-pot — answering `200`, so a
+spam script gets no signal to tune against.
+
+`src/lib/contact-config.ts` reads the key and is **server-only**: `RESEND_API_KEY`
+is not a `NEXT_PUBLIC_` variable, so the browser never sees it. The page passes
+a `configured` boolean down only to word the form *before* submission. That
+boolean is resolved while prerendering, so changing the key on Vercel means
+redeploying — but **delivery never depends on it, only the wording does**. The
+form always posts, and a `503` (no key on the server) or a `404` (no
+`/api/contact` mounted at all, as in a purely static deployment) both fall back
+to the `mailto:` handoff.
+
+A test-only `RESEND_API_URL` override points the route at a mock server, which
+is how the delivery path is verified without a Resend account.
 
 ### Resume
 
@@ -205,6 +249,7 @@ src/
 │   ├── icon.svg                favicon
 │   ├── robots.ts, sitemap.ts   SEO routes
 │   ├── not-found.tsx           404
+│   ├── api/contact/route.ts    contact handler (the one dynamic route)
 │   └── projects/
 │       ├── page.tsx            all projects
 │       └── [slug]/page.tsx     case-study route (static params + metadata)
@@ -218,7 +263,7 @@ src/
 │                               MediaFrame, Reveal, SocialLinks, BrandIcon, ThemeToggle
 ├── data/                       all content (see table above)
 ├── hooks/                      useActiveSection, useOverlay
-├── lib/                        utils, project lookups, SEO origin
+├── lib/                        utils, project lookups, SEO origin, contact rules
 ├── providers/ThemeProvider.tsx theme state + persistence
 └── types/index.ts              shared data types
 ```
@@ -309,13 +354,16 @@ The mobile menu trigger uses `aria-haspopup="dialog"`, not
 Almost everything is a **server component**. The only client components are the
 navbar, theme provider/toggle, skills tabs, certificates gallery, contact form
 and the reveal observer. The hero terminal is pure CSS animation — no JS. Fonts
-load through `next/font`, images through `next/image`, and every route is
-statically prerendered.
+load through `next/font` and images through `next/image`.
+
+Every page is prerendered at build time. The one exception is `/api/contact`,
+which has to run per request — see "Contact form" above.
 
 ## What is intentionally not finished
 
 - No personal details, employers, dates, certificate issuers, project URLs or
   social URLs have been invented — placeholders are bracketed.
-- The contact form validates and shows its success state, but is not wired to an
-  email service.
+- The contact form **never claims a send it did not make**: with
+  `RESEND_API_KEY` set it delivers by email, and without it, it says so and
+  hands over a prefilled `mailto:` link.
 - The GitHub section uses static data; the GitHub API is not connected.

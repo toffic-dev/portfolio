@@ -9,6 +9,7 @@ import { GitHub } from "@/components/GitHub";
 import { Certificates } from "@/components/Certificates";
 import { Resume } from "@/components/Resume";
 import { Contact } from "@/components/Contact";
+import { isContactConfigured } from "@/lib/contact-config";
 
 /**
  * The single-page portfolio.
@@ -29,7 +30,7 @@ export default function HomePage() {
       {/* 04.5 */} <GitHub />
       {/* 05 */} <Certificates />
       {/* 05.5 */} <Resume />
-      {/* 06 */} <Contact />
+      {/* 06 */} <Contact configured={isContactConfigured()} />
     </>
   );
 }

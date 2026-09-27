@@ -2,8 +2,9 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /*
-   * The portfolio is a static-content site: it ships no runtime data fetching,
-   * so every route is prerendered at build time.
+   * Every page is prerendered at build time. The single request-time route is
+   * `/api/contact`, which cannot be cached because a submitted message is
+   * request-scoped — it is the one `(Dynamic)` entry in the build output.
    */
   reactStrictMode: true,
 
