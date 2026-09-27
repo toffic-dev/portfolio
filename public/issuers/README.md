@@ -53,7 +53,7 @@ either theme.
 - The mark is decorative in the UI (the issuer name is always shown beside it,
   so `alt` is not announced twice) — it still appears as a hover tooltip.
 - A certificate with no `issuerLogo` simply shows its issuer text; nothing breaks.
-
-`issuer-sample.png` is a generated generic seal. **No credential references it any
-more** — it is kept only as a format reference, and is safe to delete along with
-its entry in `scripts/generate-placeholder-assets.mjs`.
+- Nothing in this folder is generated any more. The generic `issuer-sample.png`
+  that used to sit here as a format reference was deleted, along with its entry
+  in `scripts/generate-placeholder-assets.mjs`, once every earned credential had
+  its real badge.

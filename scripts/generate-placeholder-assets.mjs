@@ -4,7 +4,6 @@
  *   public/projects/project-sample.png         1600×1000  project screenshot
  *   public/certificates/certificate-sample.png 1400×1000  credential scan
  *   public/certificates/certificate-sample.pdf            credential PDF branch
- *   public/issuers/issuer-sample.png           512×512    issuer badge
  *
  * They exist so the image code paths (project covers, certificate previews, PDF
  * branch) are exercised by real files instead of an empty frame. They are
@@ -311,29 +310,6 @@ function samplePdf() {
   return Buffer.from(pdf, "latin1");
 }
 
-function issuerBadge() {
-  const size = 512;
-  const data = canvas(size, size, [255, 255, 255]);
-  const r = (x, y, w, h, colour, alpha) =>
-    rect(data, size, size, x, y, w, h, colour, alpha);
-
-  /* A generic certification seal: concentric discs plus ascending bars.
-     No text and no letterforms — nothing that could be mistaken for a real
-     organisation's mark. */
-  circle(data, size, size, 256, 256, 232, [232, 234, 240], 1);
-  circle(data, size, size, 256, 256, 214, INK, 1);
-  circle(data, size, size, 256, 256, 176, [255, 255, 255], 1);
-  circle(data, size, size, 256, 256, 148, ACCENT, 1);
-  circle(data, size, size, 256, 256, 112, INK, 1);
-
-  const WHITE = [255, 255, 255];
-  r(206, 268, 26, 46, WHITE, 1);
-  r(243, 234, 26, 80, WHITE, 1);
-  r(280, 200, 26, 114, WHITE, 1);
-
-  return encodePng(size, size, data);
-}
-
 /* -------------------------------------------------------------------------- */
 /* Write the files                                                            */
 /* -------------------------------------------------------------------------- */
@@ -342,7 +318,6 @@ const OUTPUTS = [
   ["public/projects/project-sample.png", projectScreenshot],
   ["public/certificates/certificate-sample.png", certificateScan],
   ["public/certificates/certificate-sample.pdf", samplePdf],
-  ["public/issuers/issuer-sample.png", issuerBadge],
 ];
 
 for (const [relativePath, build] of OUTPUTS) {
