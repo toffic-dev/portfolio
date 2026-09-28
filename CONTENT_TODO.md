@@ -865,7 +865,7 @@ public/projects/      screenshots       ✅ DONE — 3 of 3 (slug-named, ~16:9, 
 public/certificates/  credential scans  ✅ DONE — 4 of 4 earned (image1–4 renamed to
                                          the credential ids; ~1900 px, 16:9, fitted
                                          whole in the card and viewer)
-public/resume/        resume.pdf        ❌ still needed — keep this exact filename
+public/resume/        resume.pdf        ✅ DONE — 69,893 bytes, PDF 1.7, 2 pages
 ```
 
 The link-preview card is **done**: it is generated at build time by
@@ -894,17 +894,32 @@ Two small notes, in case you want to replace it later:
 - `object-cover` centres the crop, so keep the subject centred horizontally in any
   replacement. A *wider* photo would crop the sides instead of the top/bottom.
 
-### ⚠️ Résumé PDF — still not here
+### ✅ Résumé PDF — done
 
-No résumé file exists anywhere in the workspace; I searched the whole tree and
-the only PDF present is the 770-byte generated `certificate-sample.pdf`. Nothing
-has been attached in this conversation either, and I will not fabricate a résumé
-from your record — the claims in it are yours to make.
+`public/resume/resume.pdf` is in place: 69,893 bytes, **PDF 1.7, 2 pages**,
+produced by LibreOffice 24.2. Its SHA-256 matches the file supplied exactly, so
+nothing was altered on the way in.
 
-Both buttons point at `/resume/resume.pdf`, so **until that file exists they are
-broken links** — I confirmed a live 404. Drop your PDF at
-`public/resume/resume.pdf` (that exact name) and it works with no other change;
-the paths are data, not code.
+Both buttons are live: `/resume/resume.pdf` now serves `200` with
+`content-type: application/pdf` where it previously returned a 404. No code
+changed to achieve that — the path was always data.
+
+The section **copy** was the only thing that had to move with it, and it mattered:
+one scaffold note printed the file path and described the PDF as "expected", and
+another said the contents "are not on the page yet". Both would have sat directly
+above a working download button telling visitors the file was missing. They now
+describe the document instead of its absence.
+
+**Worth a decision, and it is not a small one.** The résumé ends with a
+**References** section that lists three people alongside their **mobile numbers
+and personal email addresses**. Acting as a referee is a favour to you, not
+consent to be published — and a PDF on a public site is readable by anyone who
+opens it and by address-harvesting bots. The usual practice is a single line,
+"References available on request". A revised PDF drops in with no code change.
+
+The five sections the page advertises (Experience, Education, Skills, Projects,
+Certifications) were **read out of the document itself rather than assumed**, and
+all five are present.
 
 ## 10. Still open
 

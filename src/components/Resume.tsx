@@ -14,9 +14,10 @@ const RESUME_CONTENTS = [
 /**
  * Resume call-to-action.
  *
- * Both buttons read their targets from `site.resume`, so replacing the PDF in
- * `public/resume/` (or renaming it) is a data change — no component edit. The
- * file is intentionally absent until the real résumé is added, hence the note.
+ * Both buttons read their targets from `site.resume`, so swapping the PDF in
+ * `public/resume/` (or renaming it) is a data change — no component edit here.
+ * The file is in place, so the note below describes it instead of apologising
+ * for its absence.
  */
 export function Resume() {
   return (
@@ -69,8 +70,7 @@ export function Resume() {
                 </div>
 
                 <p className="meta mt-6 text-muted">
-                  Expected at {site.resume.downloadPath} — the PDF is added to
-                  public/resume/ and the buttons pick it up automatically.
+                  Two-page PDF — download it, or read it in a new tab.
                 </p>
               </div>
 
@@ -91,8 +91,7 @@ export function Resume() {
                 </ul>
 
                 <p className="meta mt-8 border-t border-line pt-6 text-muted">
-                  Resume contents are not on the page yet — the PDF is the single
-                  source of truth.
+                  The PDF is the single source of truth — these are its sections.
                 </p>
               </div>
             </div>

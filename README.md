@@ -3,12 +3,12 @@
 A complete, production-ready **developer portfolio framework** built with
 Next.js (App Router), TypeScript, Tailwind CSS v4 and React 19.
 
-Every section, interaction and layout is finished. **Identity, contact details,
-projects and their detail (with real screenshots), experience and dates,
-credentials (with their official badges and scans), the portrait, skills and
-GitHub figures are all real.** What remains is one asset file (the résumé PDF)
-plus a few written passages, all still clearly marked with bracketed
-placeholders.
+Every section, interaction and layout is finished. **Identity and contact
+details, projects and their detail (with real screenshots), experience and
+dates, credentials (with their official badges and scans), the portrait, the
+résumé PDF, skills and GitHub figures are all real.** The one deliberately
+unfinished part is the Lab section, whose four experiments stay clearly marked
+as placeholders until there is real work to put there.
 
 ---
 
@@ -131,8 +131,9 @@ is how the delivery path is verified without a Resend account.
 
 ### Resume
 
-Drop the PDF into `public/resume/`, keeping the name `resume.pdf` (or update the
-paths in `src/data/site.ts`).
+`public/resume/resume.pdf` is in place. Both buttons read their paths from
+`src/data/site.ts`, so replacing the PDF — or renaming it — is a data change,
+not a component edit. Keep the name `resume.pdf`, or update those paths.
 
 ### Projects
 
