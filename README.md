@@ -24,9 +24,14 @@ npm run lint       # eslint
 
 Deploy to Vercel: import the repository, then set **`NEXT_PUBLIC_SITE_URL`**
 (e.g. `https://your-domain.com`) so metadata, `robots.txt` and `sitemap.xml`
-use the real domain. Optionally set **`RESEND_API_KEY`** to switch the contact
-form from a `mailto:` handoff to real delivery — see "Contact form" below.
-`.env.example` lists every variable the site reads.
+use the real domain. A bare `your-domain.com` is fine too — the scheme is added
+— and a **blank value counts as unset** rather than breaking the build, which
+an environment variable set to the empty string otherwise would: `""` slips
+past `??`, and `new URL("")` fails the build with `ERR_INVALID_URL`.
+
+Optionally set **`RESEND_API_KEY`** to switch the contact form from a `mailto:`
+handoff to real delivery — see "Contact form" below. `.env.example` lists every
+variable the site reads.
 
 **Testing on a phone or another machine?** `next dev` also serves on this
 machine's LAN address and prints it (`Network: http://192.168.100.4:3000`). Next
